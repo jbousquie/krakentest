@@ -1,5 +1,4 @@
-// try this example with
-// $ cargo run --example wss_client
+// https://docs.rs/fast_websocket_client/0.2.0/fast_websocket_client/
 
 use std::time::Duration;
 use fast_websocket_client::{client, connect, OpCode};

@@ -1,12 +1,14 @@
 // https://docs.rs/fast_websocket_client/0.2.0/fast_websocket_client/
 
+use std::collections::VecDeque;
 use std::time::Duration;
 use fast_websocket_client::{client, connect, OpCode};
-use trades::trades::process_msg;
+use trades::trades::Trades;
 
 const PAIR: &str = "BTC/USD";
 const TIMEOUT: u64 = 10;    // toutes les combien de secondes, on traite les données reçues
 static TIMEOUT_MS: u64 = TIMEOUT * 1000;
+const FILENAME: &str = "trades.csv";
 
 mod trades;
 
@@ -50,6 +52,13 @@ pub fn run_websocket() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
 
     let url = "wss://ws.kraken.com/v2";
+
+    let mut trades: Trades = Trades {
+        file_max_len: 5000,
+        mem_max_len: 1000,
+        list: VecDeque::new(),
+        filename: FILENAME,
+    };
 
     let handle = runtime.spawn(async move {
         
@@ -111,7 +120,7 @@ pub fn run_websocket() -> Result<(), Box<dyn std::error::Error>> {
                         //println!("{payload}");
                         // on ne traite que les messages de trade, commençant par {"channel":"trade",type:"update"
                         if payload.starts_with("{\"channel\":\"trade\",\"type\":\"update\"") {
-                            process_msg(payload);
+                            trades.process_msg(payload);
                         }
                     }
                     OpCode::Close => {

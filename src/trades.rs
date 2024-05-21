@@ -1,14 +1,15 @@
 pub mod trades {
 
-    use std::{fs::OpenOptions, io::Write};
+    use std::{collections::VecDeque, fs::OpenOptions, io::Write};
 
     use serde::{Deserialize, Serialize};
     use serde_json::Result;
 
     // datetime from rfc3339 string : https://docs.rs/chrono/latest/chrono/struct.DateTime.html#method.parse_from_rfc3339
 
+    
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct Trade {
         symbol: String,
         side: String,
@@ -24,48 +25,77 @@ pub mod trades {
         data: Vec<Trade>
     }
 
-    pub fn process_msg(payload: &str) -> Vec<Trade>{
-        let msg: Result<Msg> = serde_json::from_str(payload);
-        let trades: Vec<Trade> = match msg {
-            Ok(msg) => msg.data,
-            Err(_) => {
-                vec!()
-            }
-        };
-        record_trades(&trades);
-        trades
+    pub struct Trades<'a> {
+        pub file_max_len: usize,
+        pub mem_max_len: usize,
+        pub list: VecDeque<Trade>,
+        pub filename: &'a str,
     }
 
-    pub fn record_trades(trades: &Vec<Trade>)  {
-        let filename = "trades.csv";
-        let l = trades.len();
-        if l > 0 {                       
-            for i in 0..l {
-                let trade = &trades[i];
-                let symbol = &trade.symbol;
-                let side  = &trade.side;
-                let price = &trade.price;
-                let qty = &trade.qty;
-                let ord_type = &trade.ord_type;
-                let timestamp = &trade.timestamp;
-                // Comparaison avec le dernier timestamp stocké
-                // let datetime_ts = match DateTime::parse_from_rfc3339(timestamp) {
-                //     Ok(ts) => ts.timestamp(),
-                //     Err(_) => 0,
-                // };
-                let line = format!("{},{},{},{},{},{}\n", symbol, side, price, qty, ord_type, timestamp);
-                write_file(&filename, &line);
+    impl Trades <'_>{
+        pub fn process_msg(&mut self, payload: &str) {
+            let msg: Result<Msg> = serde_json::from_str(payload);
+            let trades: Vec<Trade> = match msg {
+                Ok(msg) => msg.data,
+                Err(_) => {
+                    vec!()
+                }
+            };
+            self.store_trades(&trades);
+            self.record_trades(&trades);
+        }
+
+        pub fn store_trades(&mut self, trades: &Vec<Trade>) {
+            let l = trades.len();
+            if l > 0 {
+                for i in 0..l {
+                    let trade = trades[i].clone();
+                    self.list.push_front(trade);
+                }
+                if self.list.len() > self.mem_max_len {
+                    let default = Self::default_trade();
+                    self.list.resize(self.mem_max_len, default);
+                }
+            }
+        }
+    
+        pub fn record_trades(&self, trades: &Vec<Trade>)  {
+            let l = trades.len();
+            if l > 0 {                       
+                for i in 0..l {
+                    let trade = &trades[i];
+                    let symbol = &trade.symbol;
+                    let side  = &trade.side;
+                    let price = &trade.price;
+                    let qty = &trade.qty;
+                    let ord_type = &trade.ord_type;
+                    let timestamp = &trade.timestamp;
+                    let line = format!("{},{},{},{},{},{}\n", symbol, side, price, qty, ord_type, timestamp);
+                    self.write_file(self.filename, &line);
+                }
+            }
+        }
+    
+        fn write_file(&self, file_path: &str, line: &str) {
+            let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true)
+            .open(file_path)
+            .expect("erreur ouverture fichier des trades");
+            file.write(line.as_bytes()).expect("erreur écriture fichier des trades");
+        }
+
+        fn default_trade() -> Trade {
+            Trade {
+                symbol: "".into(),
+                side: "".into(),
+                price: 0.,
+                qty: 0.,
+                ord_type: "".into(),
+                timestamp: "".into(),
             }
         }
     }
 
-    fn write_file(file_path: &str, line: &str) {
-        let mut file = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .append(true)
-        .open(file_path)
-        .expect("erreur ouverture fichier des trades");
-        file.write(line.as_bytes()).expect("erreur écriture fichier des trades");
-    }
 }

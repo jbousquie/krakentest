@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 use fast_websocket_client::{client, connect, OpCode};
-use trades::process_msg;
+use trades::trades::process_msg;
 
 const PAIR: &str = "BTC/USD";
 const TIMEOUT: u64 = 10;    // toutes les combien de secondes, on traite les données reçues
@@ -58,7 +58,7 @@ pub fn run_websocket() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut client: client::Online = match future.await {
                 Ok(client) => {
-                    println!("connected");
+                    println!("connected to Kraken");
                     client
                 }
                 Err(e) => {
@@ -109,8 +109,8 @@ pub fn run_websocket() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         };
                         //println!("{payload}");
-                        // on ne traite que les messages de trade, commençant par {"channel":"trade"
-                        if payload.starts_with("{\"channel\":\"trade\"") {
+                        // on ne traite que les messages de trade, commençant par {"channel":"trade",type:"update"
+                        if payload.starts_with("{\"channel\":\"trade\",\"type\":\"update\"") {
                             process_msg(payload);
                         }
                     }

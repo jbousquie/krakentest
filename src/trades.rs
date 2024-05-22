@@ -5,18 +5,19 @@ pub mod trades {
     use serde::{Deserialize, Serialize};
     use serde_json::Result;
 
+    use crate::simu::simu::read_trades;
     // datetime from rfc3339 string : https://docs.rs/chrono/latest/chrono/struct.DateTime.html#method.parse_from_rfc3339
 
     
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct Trade {
-        symbol: String,
-        side: String,
-        price: f64,
-        qty: f64,
-        ord_type: String,
-        timestamp: String,
+        pub symbol: String,
+        pub side: String,
+        pub price: f64,
+        pub qty: f64,
+        pub ord_type: String,
+        pub timestamp: String,
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -45,6 +46,7 @@ pub mod trades {
             self.record_trades(&trades);
         }
 
+        // Stocke les trades en mémoire et retaille le tableau
         pub fn store_trades(&mut self, trades: &Vec<Trade>) {
             let l = trades.len();
             if l > 0 {
@@ -57,6 +59,7 @@ pub mod trades {
                     self.list.resize(self.mem_max_len, default);
                 }
             }
+            read_trades(&self.list);
         }
     
         // Enregistre les trades des messages WS dans un fichier
@@ -94,7 +97,7 @@ pub mod trades {
             let lines: Vec<&str> = content.split('\n').collect();
             let l = lines.len();
             if l > 0 {
-                let last = l - 2;
+                let last = l - 2;  // la dernière ligne du fichier est toujours vide
                 let min = std::cmp::min(last + 1, self.mem_max_len);
                 for i in 0..min {
                     let line = lines[last - i];

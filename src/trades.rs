@@ -1,6 +1,6 @@
 pub mod trades {
 
-    use std::{collections::VecDeque, fs::OpenOptions, io::Write};
+    use std::{collections::VecDeque, fs::{self, OpenOptions}, io::Write};
 
     use serde::{Deserialize, Serialize};
     use serde_json::Result;
@@ -59,6 +59,7 @@ pub mod trades {
             }
         }
     
+        // Enregistre les trades des messages WS dans un fichier
         pub fn record_trades(&self, trades: &Vec<Trade>)  {
             let l = trades.len();
             if l > 0 {                       
@@ -76,6 +77,7 @@ pub mod trades {
             }
         }
     
+        // Ecrit une ligne de trade dans le fichier
         fn write_file(&self, file_path: &str, line: &str) {
             let mut file = OpenOptions::new()
             .create(true)
@@ -84,6 +86,34 @@ pub mod trades {
             .open(file_path)
             .expect("erreur ouverture fichier des trades");
             file.write(line.as_bytes()).expect("erreur écriture fichier des trades");
+        }
+
+        // Récupère les trades du fichier et les charges dans la liste de self
+        pub fn get_trades_from_file(&mut self) {
+            let content = fs::read_to_string(self.filename).expect("erreur de lecture du fichier de trades");
+            let lines: Vec<&str> = content.split('\n').collect();
+            let l = lines.len();
+            if l > 0 {
+                let last = l - 2;
+                let min = std::cmp::min(last + 1, self.mem_max_len);
+                for i in 0..min {
+                    let line = lines[last - i];
+                    self.list.push_front(self.trade_from_line(line));
+                }
+            }
+        }
+
+        // Fabrique un objet Trade à partir d'une ligne du fichier
+        fn trade_from_line(&self, line: &str) -> Trade {
+            let fields: Vec<&str> = line.split(',').collect();
+            Trade {
+                symbol: fields[0].to_string(),
+                side: fields[1].to_string(),
+                price: fields[2].parse::<f64>().unwrap(),
+                qty: fields[3].parse::<f64>().unwrap(),
+                ord_type: fields[4].to_string(),
+                timestamp: fields[5].to_string()
+            }
         }
 
         fn default_trade() -> Trade {

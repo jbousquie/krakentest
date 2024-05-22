@@ -59,12 +59,14 @@ pub fn run_websocket() -> Result<(), Box<dyn std::error::Error>> {
         list: VecDeque::new(),
         filename: FILENAME,
     };
+    trades.get_trades_from_file(); // on recharge l'historique stocké dans le fichier au début
 
-    let handle = runtime.spawn(async move {
-        
+    // création du thread de la WS
+    let handle = runtime.spawn(async move {   
         'reconnect_loop: loop {
             let future = connect(url);
 
+            // Connexion de la WS
             let mut client: client::Online = match future.await {
                 Ok(client) => {
                     println!("connected to Kraken");
@@ -137,6 +139,7 @@ pub fn run_websocket() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() {
+
     let _ws = run_websocket();
 
 }

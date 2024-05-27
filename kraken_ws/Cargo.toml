@@ -1,15 +1,9 @@
 [package]
-name = "krakentest"
+name = "kraken_ws"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
-members = [ "kraken_ws" ]
 
-
-[[bin]]
-name = "kraken_ws"
-path = "kraken_ws/src/main.rs"
 
 [dependencies]
 fast_websocket_client = { version = "0.2.0" }
@@ -18,3 +12,5 @@ serde_json = "1.0.117"
 tokio = { version = "1.37.0", default-features = false, features = ["macros",  "parking_lot", "rt-multi-thread", "time"] }
 simdutf8 = { version = "0.1.4", features = ["aarch64_neon"] }
 chrono = "0.4.38"
+
+

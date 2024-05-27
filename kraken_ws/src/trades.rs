@@ -5,7 +5,6 @@ pub mod trades {
     use serde::{Deserialize, Serialize};
     use serde_json::Result;
 
-    use crate::simu::simu::read_trades;
     // datetime from rfc3339 string : https://docs.rs/chrono/latest/chrono/struct.DateTime.html#method.parse_from_rfc3339
 
     
@@ -59,7 +58,6 @@ pub mod trades {
                     self.list.resize(self.mem_max_len, default);
                 }
             }
-            read_trades(&self.list);
         }
     
         // Enregistre les trades des messages WS dans un fichier

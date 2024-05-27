@@ -11,7 +11,7 @@ static TIMEOUT_MS: u64 = TIMEOUT * 1000;
 const FILENAME: &str = "trades.csv";
 
 mod trades;
-mod simu;
+
 
 #[derive(serde::Serialize)]
 struct Params {

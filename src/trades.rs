@@ -96,12 +96,12 @@ pub mod trades {
             let content = fs::read_to_string(self.filename).expect("erreur de lecture du fichier de trades");
             let lines: Vec<&str> = content.split('\n').collect();
             let l = lines.len();
-            if l > 0 {
+            if l > 2 {
                 let last = l - 2;  // la dernière ligne du fichier est toujours vide
                 let min = std::cmp::min(last + 1, self.mem_max_len);
                 for i in 0..min {
                     let line = lines[last - i];
-                    self.list.push_front(self.trade_from_line(line));
+                    self.list.push_back(self.trade_from_line(line));
                 }
             }
         }

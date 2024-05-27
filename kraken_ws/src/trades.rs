@@ -41,24 +41,24 @@ pub mod trades {
                     vec!()
                 }
             };
-            self.store_trades(&trades);
+            //self.store_trades(&trades);
             self.record_trades(&trades);
         }
 
         // Stocke les trades en mémoire et retaille le tableau
-        pub fn store_trades(&mut self, trades: &Vec<Trade>) {
-            let l = trades.len();
-            if l > 0 {
-                for i in 0..l {
-                    let trade = trades[i].clone();
-                    self.list.push_front(trade);
-                }
-                if self.list.len() > self.mem_max_len {
-                    let default = Self::default_trade();
-                    self.list.resize(self.mem_max_len, default);
-                }
-            }
-        }
+        // pub fn store_trades(&mut self, trades: &Vec<Trade>) {
+        //     let l = trades.len();
+        //     if l > 0 {
+        //         for i in 0..l {
+        //             let trade = trades[i].clone();
+        //             self.list.push_front(trade);
+        //         }
+        //         if self.list.len() > self.mem_max_len {
+        //             let default = Self::default_trade();
+        //             self.list.resize(self.mem_max_len, default);
+        //         }
+        //     }
+        // }
     
         // Enregistre les trades des messages WS dans un fichier
         pub fn record_trades(&self, trades: &Vec<Trade>)  {
@@ -117,16 +117,16 @@ pub mod trades {
             }
         }
 
-        fn default_trade() -> Trade {
-            Trade {
-                symbol: "".into(),
-                side: "".into(),
-                price: 0.,
-                qty: 0.,
-                ord_type: "".into(),
-                timestamp: "".into(),
-            }
-        }
+        // fn default_trade() -> Trade {
+        //     Trade {
+        //         symbol: "".into(),
+        //         side: "".into(),
+        //         price: 0.,
+        //         qty: 0.,
+        //         ord_type: "".into(),
+        //         timestamp: "".into(),
+        //     }
+        // }
     }
 
 }

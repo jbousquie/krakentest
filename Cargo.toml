@@ -4,12 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [ "kraken_ws" ]
+members = [ "kraken_ws", "kraken_simu" ]
 
 
 [[bin]]
 name = "kraken_ws"
 path = "kraken_ws/src/main.rs"
+
+[[bin]]
+name = "kraken_simu"
+path = "kraken_simu/src/main.rs"
 
 [dependencies]
 fast_websocket_client = { version = "0.2.0" }

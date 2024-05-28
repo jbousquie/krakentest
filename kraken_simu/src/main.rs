@@ -1,32 +1,132 @@
 use std::fs;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
+use rand::prelude::*;
 
 
 const BASE: f64 = 1000.;    // mise de base des agents
 const INTERVAL: u64 = 20;        // intervalle en secondes d'action des agents
 const FILENAME: &str = "trades.csv";
+const FEE: f64 = 0.0012;
+const MARGE: f64 = 0.00005;    // marge +/- en pourcentage à appliquer au prix courant du marché pour être sûr de vendre/acheter
 
 struct Agent {
-    start: f64,
-    current: f64,
+    start: f64,             // montant investi en USD
+    current: f64,           // solde courant en USD
+    buyer: bool,            // mode acheteur
+    crypto: f64,            // solde courant en crypto
+    last: f64,              // dernier prix payé
+    thr_gain: f64,          // seuil de gain net en % avant achat
+    thr_loss: f64,          // seuil de perte nette avant vente en %
 }
 
 impl Agent {
-    fn trade(&mut self, trades: &Vec<Trade>) {
+    fn trade(&mut self, trades: &Vec<Trade>) -> f64 {
         let l = trades.len();
         if l >= 2 {
+            let mode = "trade";
+            let start = trades[0].price;
+            self.buy(start, mode);         
+            
+            for i in 1..l {
+                let price = trades[i].price;
+                // my_price prix estimé proposé à la vente
+                let my_price = if self.buyer { self.last * (1. + MARGE) * (1. - FEE) } else { self.last * (1. - MARGE) * (1. - FEE) };
+                let gain_price = my_price * (1. + self.thr_gain); // prix déclencheur de vente avec gain
+                let loss_price = my_price * (1. - self.thr_loss); // prix déclencheur de vente à perte
+                if self.buyer && price > trades[i - 1].price {
+                    if self.last >= price {
+                        self.buy(price, mode);
+                    }
+                }
+                else if price < trades[i - 1].price {
+                    if price >= gain_price || price <= loss_price {
+                        self.sell(price, mode);
+                    }
+                }
+            }
+            // on revend dans tous les cas à la fin
+            if !self.buyer {
+                let end = trades[l - 1].price;
+                self.sell(end, mode);
+            }
+        }
+        let gain = self.current - self.start;
+        gain
+    }
+
+    // invest : on achète au début et on revend à la fin sans jamais trader
+    fn invest(&mut self, trades: &Vec<Trade>) -> f64 {
+        let l = trades.len();
+        if l >= 2 {
+            let mode = "invest";
             let start = trades[0].price;
             let end = trades[l - 1].price;
-            let variation = (end - start) / start ;
-            for i in 0..l {
-                let trade = &trades[i];
-            }
-            let current = self.start * (1. + variation);
-            self.current = current;
-            println!("{current}");
+            self.buy(start, mode);
+            self.sell(end, mode);
+
         }
+        let gain = self.current - self.start;
+        gain
     }
+
+    fn random(&mut self, trades: &Vec<Trade>, fq: f64) -> f64 {
+        let l = trades.len();
+        if l >= 2 {
+            let mode = "random";
+            let mut rng = rand::thread_rng();
+            let start = trades[0].price;
+            self.buy(start, mode);
+            for i in 1..l {
+                let rdm: f64 = rng.gen();
+                if rdm <= fq {
+                    let price = trades[i].price;
+                    if self.buyer {
+                        self.buy(price, mode);
+                    }
+                    else {
+                        self.sell(price, mode);
+                    }
+                }
+            }
+            // on revend dans tous les cas à la fin
+            if !self.buyer {
+                let end = trades[l - 1].price;
+                self.sell(end, mode);
+            }
+        }
+        let gain = self.current - self.start;
+        gain
+    }
+
+    fn buy(&mut self, mut price: f64, mode: &str) {
+        if self.buyer && price > 0. {
+            self.buyer = false;
+            println!("\nAchat ({}) : prix marché = {} USD/BTC", mode, price);
+            price = price * (1. + MARGE);       // on paye un peu plus cher que le prix pour augmenter la probabilité d'acheter
+            self.crypto = self.current / price * (1. - FEE);
+            println!("achat de {:.6} BTC pour {:.2} USD au prix net de {:.2} USD/BTC", self.crypto, self.current, price);
+            self.current = 0.;
+            self.last = price;
+            println!("solde courant = {:.6} BTC", self.crypto);
+        }
+     }
+
+     fn sell(&mut self, mut price: f64, mode: &str) {
+        if !self.buyer && price > 0. {
+            self.buyer = true;
+            println!("\nVente ({}) : prix marché = {} USD/BTC", mode, price);
+            price = price * (1. - MARGE);     // on vend un peu moins cher que le prix pour augmenter la probabilité de vendre
+            self.current = self.crypto * price * (1. - FEE);
+            println!("vente de {:.6} BTC pour {:.2} USD au prix net de {:.2} USD/BTC", self.crypto, self.current, price);
+            self.crypto = 0.;
+            println!("solde courant = {:.2} USD", self.current);
+            let gain = self.current - self.start;
+            println!("gain/perte = {:.2} USD", gain);
+        }
+     }
+
+
 }
 
 #[derive(Debug, Clone)]
@@ -71,9 +171,25 @@ fn trade_from_line(line: &str) -> Trade {
 
 fn simulate() {
     let trades = get_trades_from_file(FILENAME);
-    let mut agent1 = Agent { start: BASE, current: BASE };
-    agent1.trade(&trades);
+    let mut agent1 = Agent { 
+        start: BASE, 
+        current: BASE,
+        buyer: true,
+        crypto: 0.,
+        last: 0.,
+        thr_gain: 0.005,
+        thr_loss: 0.001,
+     };
+    let rnd = agent1.random(&trades, 0.01); // trade au hasard à la fréquence fq
+    let inv = agent1.invest(&trades);           // achète au début, attend, revend à la fin
+    let trd = agent1.trade(&trades);            // trade selon règle simple
 
+    println!("\nGains USD :\nrnd = {:.2}\ninv = {:.2}\ntrd = {:.2}", rnd, inv, trd);
+    if trades.len() > 2 {
+        let deb = trades[0].price;
+        let fin = trades[trades.len() - 1].price;
+        println!("prix début = {:.2} USD, prix fin  = {:.2} USD, variation = {:.2}", deb, fin, fin - deb);
+    }
 }
 
 fn main() {

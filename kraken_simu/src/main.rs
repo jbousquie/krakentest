@@ -4,11 +4,13 @@ use std::time::{Duration, Instant};
 use rand::prelude::*;
 
 
-const BASE: f64 = 1000.;    // mise de base des agents
-const INTERVAL: u64 = 20;        // intervalle en secondes d'action des agents
+const BASE: f64 = 1000.;            // mise de base des agents
+const INTERVAL: u64 = 20;           // intervalle en secondes d'action des agents
 const FILENAME: &str = "trades.csv";
 const FEE: f64 = 0.0012;
-const MARGE: f64 = 0.00005;    // marge +/- en pourcentage à appliquer au prix courant du marché pour être sûr de vendre/acheter
+const MARGE: f64 = 0.0003;          // marge +/- en pourcentage à appliquer au prix courant du marché pour être sûr de vendre/acheter
+const THR_GAIN: f64 = 0.0003;
+const THR_LOSS: f64 = 0.0001;
 
 struct Agent {
     start: f64,             // montant investi en USD
@@ -31,9 +33,8 @@ impl Agent {
             for i in 1..l {
                 let price = trades[i].price;
                 // my_price prix estimé proposé à la vente
-                let my_price = if self.buyer { self.last * (1. + MARGE) * (1. - FEE) } else { self.last * (1. - MARGE) * (1. - FEE) };
-                let gain_price = my_price * (1. + self.thr_gain); // prix déclencheur de vente avec gain
-                let loss_price = my_price * (1. - self.thr_loss); // prix déclencheur de vente à perte
+                let gain_price = price * (1. + self.thr_gain); // prix déclencheur de vente avec gain
+                let loss_price = price * (1. - self.thr_loss); // prix déclencheur de vente à perte
                 if self.buyer && price > trades[i - 1].price {
                     if self.last >= price {
                         self.buy(price, mode);
@@ -57,38 +58,31 @@ impl Agent {
 
     // invest : on achète au début et on revend à la fin sans jamais trader
     fn invest(&mut self, trades: &Vec<Trade>) -> f64 {
-        let l = trades.len();
-        if l >= 2 {
-            let mode = "invest";
-            let start = trades[0].price;
-            let end = trades[l - 1].price;
-            self.buy(start, mode);
-            self.sell(end, mode);
-
-        }
-        let gain = self.current - self.start;
-        gain
+        self.random(trades, -1.0)
     }
 
     fn random(&mut self, trades: &Vec<Trade>, fq: f64) -> f64 {
         let l = trades.len();
         if l >= 2 {
-            let mode = "random";
+            let mode = if fq > 0. { "random" } else { "invest" };
             let mut rng = rand::thread_rng();
             let start = trades[0].price;
             self.buy(start, mode);
-            for i in 1..l {
-                let rdm: f64 = rng.gen();
-                if rdm <= fq {
-                    let price = trades[i].price;
-                    if self.buyer {
-                        self.buy(price, mode);
-                    }
-                    else {
-                        self.sell(price, mode);
+            if fq > 0. {
+                for i in 1..l {
+                    let rdm: f64 = rng.gen();
+                    if rdm <= fq {
+                        let price = trades[i].price;
+                        if self.buyer {
+                            self.buy(price, mode);
+                        }
+                        else {
+                            self.sell(price, mode);
+                        }
                     }
                 }
             }
+
             // on revend dans tous les cas à la fin
             if !self.buyer {
                 let end = trades[l - 1].price;
@@ -177,13 +171,31 @@ fn simulate() {
         buyer: true,
         crypto: 0.,
         last: 0.,
-        thr_gain: 0.005,
-        thr_loss: 0.001,
+        thr_gain: THR_GAIN,
+        thr_loss: THR_LOSS,
      };
-    let rnd = agent1.random(&trades, 0.01); // trade au hasard à la fréquence fq
-    let inv = agent1.invest(&trades);           // achète au début, attend, revend à la fin
+    let mut agent2 = Agent { 
+        start: BASE, 
+        current: BASE,
+        buyer: true,
+        crypto: 0.,
+        last: 0.,
+        thr_gain: THR_GAIN,
+        thr_loss: THR_LOSS,
+     };
+    let mut agent3 = Agent { 
+        start: BASE, 
+        current: BASE,
+        buyer: true,
+        crypto: 0.,
+        last: 0.,
+        thr_gain: THR_GAIN,
+        thr_loss: THR_LOSS,
+     };
+    let rnd = agent3.random(&trades, 0.01);  // trade au hasard à la fréquence fq
     let trd = agent1.trade(&trades);            // trade selon règle simple
-
+    let inv = agent2.invest(&trades);           // achète au début, attend, revend à la fin
+     
     println!("\nGains USD :\nrnd = {:.2}\ninv = {:.2}\ntrd = {:.2}", rnd, inv, trd);
     if trades.len() > 2 {
         let deb = trades[0].price;
